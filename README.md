@@ -2,6 +2,8 @@
 
 A production-ready hybrid LLM gateway designed for New Zealand government, finance, and legal organizations. This gateway automatically classifies user prompts for Personally Identifiable Information (PII) and routes sensitive data to local LLM infrastructure while routing public data to cost-effective cloud APIs.
 
+**AI Solution Architect Showcase Project** - Demonstrates enterprise-grade AI system design, privacy-first architecture, and compliance-driven development for regulated industries.
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -266,90 +268,34 @@ The gateway supports multiple tenants (departments, clients, or business units) 
 
 ---
 
-## Quick Start
+## Reference Architecture
 
-### Prerequisites
+This project provides a comprehensive reference architecture for building a privacy-first AI gateway. The design demonstrates enterprise-grade patterns for:
 
-- Python 3.10 or higher
-- pip (Python package manager)
-- Git
+- **PII Detection**: 16 regex patterns for NZ-specific sensitive data
+- **Intelligent Routing**: Classification-based routing to local or cloud LLMs
+- **Privacy Compliance**: Audit logging without storing PII or prompt content
+- **Enterprise Integration**: IdP, SIEM, and monitoring integrations
 
-### Installation
+### Core Components
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Rushy-p/NZ-Privacy-First-Enterprise-AI-Gateway.git
-   cd NZ-Privacy-First-Enterprise-AI-Gateway
-   ```
+| Component | Purpose |
+|-----------|---------|
+| Traffic Controller | PII detection and classification |
+| Routing Engine | Routes requests based on classification |
+| Local LLM Adapter | Integration with on-premises LLM infrastructure |
+| Cloud API Adapter | Integration with OpenAI/Azure OpenAI |
+| Audit Logger | Privacy-compliant audit trail |
+| Rate Limiter | Token bucket rate limiting |
+| Metrics Collector | Prometheus-compatible metrics |
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### Implementation Files
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-5. **Run locally**
-   ```bash
-   python middleware.py
-   ```
-
-### Testing the Gateway
-
-1. **Test PII classification**
-   ```bash
-   curl "http://localhost:8080/classify?prompt=My%20NHI%20is%20ABC1234D"
-   ```
-   Expected response:
-   ```json
-   {
-     "classification": "RESTRICTED",
-     "pii_patterns_found": ["NHI"],
-     "processing_time_ms": 5.2
-   }
-   ```
-
-2. **Test PUBLIC classification**
-   ```bash
-   curl "http://localhost:8080/classify?prompt=What%20is%20the%20capital%20of%20New%20Zealand"
-   ```
-   Expected response:
-   ```json
-   {
-     "classification": "PUBLIC",
-     "pii_patterns_found": [],
-     "processing_time_ms": 3.1
-   }
-   ```
-
-3. **Create completion (PUBLIC)**
-   ```bash
-   curl -X POST "http://localhost:8080/v1/completions" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer YOUR_TOKEN" \
-     -H "X-Tenant-Id: tenant123" \
-     -d '{"prompt": "What is the capital of New Zealand?"}'
-   ```
-
-4. **Check health**
-   ```bash
-   curl http://localhost:8080/health
-   ```
-
-5. **Get metrics**
-   ```bash
-   curl http://localhost:8080/metrics
-   ```
+- `middleware.py` - Core middleware implementation (FastAPI)
+- `design.md` - Detailed architecture documentation
+- `Dockerfile` - Container build configuration
+- `docker-compose.yml` - Local development environment
+- `k8s/deployment.yaml` - Kubernetes deployment configuration
 
 ---
 
