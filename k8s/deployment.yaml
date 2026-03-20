@@ -1,0 +1,206 @@
+# NZ Privacy-First Enterprise AI Gateway
+# Kubernetes Deployment Configuration
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    app: gateway
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: gateway
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: gateway
+        image: nz-privacy-gateway:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: LOCAL_LLM_URL
+          value: "http://ollama-service:11434"
+        - name: CLOUD_PROVIDER
+          valueFrom:
+            secretKeyRef:
+              name: gateway-secrets
+              key: cloud-provider
+              optional: true
+        - name: CLOUD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: gateway-secrets
+              key: cloud-api-key
+              optional: true
+        - name: AUDIT_STORAGE_PATH
+          value: "/var/log/ai-gateway"
+        - name: RATE_LIMIT_RPM
+          value: "100"
+        - name: ENABLE_METRICS
+          value: "true"
+        - name: ENABLE_SIEM
+          valueFrom:
+            secretKeyRef:
+              name: gateway-secrets
+              key: enable-siem
+              optional: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: audit-logs
+          mountPath: /var/log/ai-gateway
+        - name: tmp
+          mountPath: /tmp
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: audit-logs
+        persistentVolumeClaim:
+          claimName: gateway-pvc
+      - name: tmp
+        emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - gateway
+              topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: gateway
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  labels:
+    app: gateway
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: gateway
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gateway-pvc
+  labels:
+    app: gateway
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+data:
+  LOG_LEVEL: "INFO"
+  MAX_PROMPT_LENGTH: "32000"
+  CLASSIFICATION_TIMEOUT_MS: "50"
+  REQUEST_TIMEOUT_MS: "120000"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gateway-secrets
+type: Opaque
+stringData:
+  cloud-provider: "openai"
+  enable-siem: "false"
+  # Add other secrets as needed
+  # cloud-api-key: your-api-key-here
+  # siem-endpoint: https://your-siem-endpoint
+  # siem-api-key: your-siem-api-key
