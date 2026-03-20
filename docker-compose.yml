@@ -1,0 +1,91 @@
+# NZ Privacy-First Enterprise AI Gateway
+# Docker Compose for local development and testing
+
+services:
+  gateway:
+    build: .
+    container_name: nz-privacy-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - LOCAL_LLM_URL=http://ollama:11434
+      - CLOUD_PROVIDER=openai
+      - CLOUD_API_KEY=${CLOUD_API_KEY}
+      - AUDIT_STORAGE_PATH=/var/log/ai-gateway
+      - RATE_LIMIT_RPM=100
+      - ENABLE_METRICS=true
+      - ENABLE_SIEM=false
+    volumes:
+      - ./audit_logs:/var/log/ai-gateway
+      - ./.env:/app/.env:ro
+    depends_on:
+      - ollama
+    networks:
+      - gateway-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Local LLM service (Ollama)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - gateway-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Optional: Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - gateway-network
+    restart: unless-stopped
+
+  # Optional: Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - gateway-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  gateway-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+  prometheus-data:
+  grafana-data:
+  audit_logs:
