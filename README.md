@@ -1,6 +1,6 @@
 # NZ Privacy-First Enterprise AI Gateway
 
-A production-ready hybrid LLM gateway designed for New Zealand government, finance, and legal organizations. This gateway automatically classifies user prompts for Personally Identifiable Information (PII) and routes sensitive data to local LLM infrastructure while routing public data to cost-effective cloud APIs.
+A reference architecture for a hybrid LLM gateway designed for New Zealand government, finance, and legal organizations. This architecture demonstrates how to automatically classify user prompts for Personally Identifiable Information (PII) and route sensitive data to local LLM infrastructure while routing public data to cost-effective cloud APIs.
 
 **AI Solution Architect Showcase Project** - Demonstrates enterprise-grade AI system design, privacy-first architecture, and compliance-driven development for regulated industries.
 
@@ -11,19 +11,18 @@ A production-ready hybrid LLM gateway designed for New Zealand government, finan
 3. [Solution](#solution)
 4. [Key Features](#key-features)
 5. [Architecture](#architecture)
-6. [Quick Start](#quick-start)
-7. [Configuration](#configuration)
+6. [Reference Architecture](#reference-architecture)
+7. [Architecture Patterns](#architecture-patterns)
 8. [API Documentation](#api-documentation)
-9. [Deployment](#deployment)
-10. [Enterprise Integration](#enterprise-integration)
-11. [Security](#security)
-12. [Compliance](#compliance)
-13. [Performance](#performance)
-14. [Monitoring](#monitoring)
-15. [Cost Model](#cost-model)
-16. [Documentation](#documentation)
-17. [Support](#support)
-18. [License](#license)
+9. [Enterprise Integration](#enterprise-integration)
+10. [Security](#security)
+11. [Compliance](#compliance)
+12. [Performance](#performance)
+13. [Monitoring](#monitoring)
+14. [Cost Model](#cost-model)
+15. [Documentation](#documentation)
+16. [Support](#support)
+17. [License](#license)
 
 ---
 
@@ -147,7 +146,7 @@ The gateway supports multiple tenants (departments, clients, or business units) 
 - Separate rate limits per tenant
 - Separate audit logs per tenant
 
-### 5. Enterprise Integrations
+### 5. Enterprise Integration Patterns
 
 **Identity Providers**
 - Azure Active Directory
@@ -296,89 +295,6 @@ This project provides a comprehensive reference architecture for building a priv
 - `Dockerfile` - Container build configuration
 - `docker-compose.yml` - Local development environment
 - `k8s/deployment.yaml` - Kubernetes deployment configuration
-
----
-
-## Configuration
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-
-```bash
-# Core Configuration
-LOCAL_LLM_URL=http://localhost:11434
-CLOUD_PROVIDER=openai
-CLOUD_API_KEY=your-api-key-here
-AZURE_ENDPOINT=https://your-resource.openai.azure.com/
-
-# Rate Limiting
-RATE_LIMIT_RPM=100
-
-# Features
-ENABLE_METRICS=true
-ENABLE_SIEM=false
-ENABLE_RATE_LIMITING=true
-
-# Storage
-AUDIT_STORAGE_PATH=/var/log/ai-gateway
-
-# Limits
-MAX_PROMPT_LENGTH=32000
-CLASSIFICATION_TIMEOUT_MS=50
-REQUEST_TIMEOUT_MS=120000
-
-# Security
-ENABLE_IP_ALLOWLIST=false
-ALLOWED_IPS=
-
-# SIEM Configuration (if enabled)
-SIEM_ENDPOINT=https://your-siem-endpoint
-SIEM_API_KEY=your-siem-api-key
-```
-
-### Configuration Options
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `LOCAL_LLM_URL` | No | http://localhost:11434 | URL for local LLM service (Ollama, vLLM, etc.) |
-| `CLOUD_PROVIDER` | No | openai | Cloud AI provider (openai or azure) |
-| `CLOUD_API_KEY` | Yes* | - | API key for cloud AI service |
-| `AZURE_ENDPOINT` | No* | - | Azure OpenAI endpoint (required if CLOUD_PROVIDER=azure) |
-| `RATE_LIMIT_RPM` | No | 100 | Maximum requests per minute per user |
-| `ENABLE_METRICS` | No | true | Enable Prometheus metrics endpoint |
-| `ENABLE_SIEM` | No | false | Enable SIEM integration |
-| `ENABLE_RATE_LIMITING` | No | true | Enable rate limiting |
-| `AUDIT_STORAGE_PATH` | No | /var/log/ai-gateway | Path for audit log storage |
-| `MAX_PROMPT_LENGTH` | No | 32000 | Maximum prompt length in characters |
-| `CLASSIFICATION_TIMEOUT_MS` | No | 50 | PII classification timeout in milliseconds |
-| `REQUEST_TIMEOUT_MS` | No | 120000 | Request timeout in milliseconds |
-| `ENABLE_IP_ALLOWLIST` | No | false | Enable IP allowlist restriction |
-| `ALLOWED_IPS` | No | - | Comma-separated list of allowed IPs |
-| `SIEM_ENDPOINT` | No | - | SIEM webhook endpoint URL |
-| `SIEM_API_KEY` | No | - | SIEM API key for authentication |
-
-*Required when using cloud API
-
-### Tenant Configuration
-
-For multi-tenant deployments, create tenant configuration files:
-
-```yaml
-# config/tenants/tenant123.yaml
-tenant_id: tenant123
-tenant_name: Example Department
-local_llm_enabled: true
-cloud_provider: openai
-allowed_models:
-  - gpt-4
-  - gpt-3.5-turbo
-rate_limit_rpm: 500
-ip_whitelist:
-  - 10.0.0.0/8
-  - 192.168.1.0/24
-audit_retention_days: 2555  # 7 years
-```
 
 ---
 
@@ -558,93 +474,31 @@ curl -X POST "http://localhost:8080/v1/completions" \
 
 ---
 
-## Deployment
+## Architecture Patterns
 
-### Docker
+This section documents key architectural patterns used in the design.
 
-#### Build Image
+### Defense in Depth
 
-```bash
-docker build -t nz-privacy-gateway:latest .
-```
+The gateway implements multiple layers of security:
 
-#### Run Container
+1. **Perimeter Security** - WAF, DDoS protection, IP allowlisting
+2. **Network Security** - VPC isolation, subnet segmentation, TLS 1.3
+3. **Application Security** - OAuth 2.0, RBAC, rate limiting
+4. **Data Security** - Encryption at rest, immutable audit logs
 
-```bash
-docker run -d \
-  --name gateway \
-  -p 8080:8080 \
-  -v $(pwd)/audit_logs:/var/log/ai-gateway \
-  -e CLOUD_API_KEY=your-api-key \
-  nz-privacy-gateway:latest
-```
+### Privacy by Design
 
-#### Docker Compose
+- PII detection occurs within organizational boundary
+- RESTRICTED data never transmitted to external services
+- Audit logs use SHA-256 hashing for correlation without disclosure
+- No PII or prompt content stored in persistent storage
 
-```bash
-docker-compose up -d
-```
+### Enterprise Integration Patterns
 
-This starts:
-- Gateway service
-- Optional: Ollama for local LLM
-- Optional: Prometheus for metrics
-- Optional: Grafana for dashboards
-
-### Kubernetes
-
-#### Prerequisites
-
-- Kubernetes cluster (1.20+)
-- kubectl configured
-- Helm 3.x (optional)
-
-#### Deploy
-
-```bash
-# Create namespace
-kubectl create namespace ai-gateway
-
-# Apply deployment
-kubectl apply -f k8s/deployment.yaml -n ai-gateway
-
-# Check status
-kubectl get pods -n ai-gateway
-
-# View logs
-kubectl logs -f deployment/gateway -n ai-gateway
-```
-
-#### Configuration
-
-Edit `k8s/deployment.yaml` to configure:
-- Image version
-- Resource limits
-- Environment variables
-- Replica count
-- Autoscaling
-
-#### Scaling
-
-```bash
-# Manual scaling
-kubectl scale deployment/gateway --replicas=5 -n ai-gateway
-
-# View HPA
-kubectl get hpa -n ai-gateway
-```
-
-### Enterprise Deployment
-
-For production enterprise deployments, see [design.md](design.md) for:
-
-- Kong/Apigee API Gateway integration
-- Istio service mesh configuration
-- Azure AD authentication setup
-- SIEM integration (Splunk, Elastic)
-- Monitoring setup (Prometheus, Grafana)
-- High availability configuration
-- Disaster recovery procedures
+- **Identity Providers**: Azure AD, Okta, Keycloak, Auth0
+- **SIEM Platforms**: Splunk, Elastic Stack, QRadar, Azure Sentinel
+- **Monitoring Tools**: Prometheus, Grafana, Datadog, New Relic
 
 ---
 
@@ -926,24 +780,16 @@ The gateway exposes the following metrics:
 
 | Document | Description |
 |----------|-------------|
-| [requirements.md](requirements.md) | Detailed requirements, compliance matrix, risk assessment |
-| [design.md](design.md) | Architecture, components, integration specs, deployment guide |
-| [tasks.md](tasks.md) | Implementation roadmap with 102 tasks |
+| [design.md](design.md) | Detailed architecture documentation |
+| [middleware.py](middleware.py) | Core implementation reference |
 
-### Additional Documentation
+### Reference Sections
 
-- **API Documentation**: Available at `/docs` when running
-- **OpenAPI Spec**: Available at `/openapi.json`
-- **Deployment Guides**: See [design.md](design.md#deployment-procedures)
-- **Security Documentation**: See [design.md](design.md#security-architecture)
-
----
-
-## Support
-
-- **Documentation**: See root directory for spec files
-- **Issues**: GitHub Issues
-- **Enterprise Support**: Contact for SLA-backed support
+- **Architecture**: Component design and interactions
+- **PII Detection**: 16 regex patterns for NZ-specific identifiers
+- **Routing Logic**: Classification-based routing decisions
+- **Audit Design**: Privacy-compliant logging patterns
+- **Enterprise Integration**: IdP, SIEM, and monitoring patterns
 
 ---
 
@@ -953,4 +799,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**A production-ready solution for secure, compliant AI governance in New Zealand enterprise environments.**
+**A reference architecture for secure, compliant AI governance in New Zealand enterprise environments.**
