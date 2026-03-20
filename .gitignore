@@ -66,4 +66,6 @@ models/
 
 # Audit logs (contain sensitive metadata)
 audit_logs/
-*.jsonl
+*.jsonl# Implementation tasks (internal planning document)
+tasks.md
+requirements.md
